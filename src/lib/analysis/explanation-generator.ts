@@ -1,5 +1,12 @@
+'use server';
+
 import { DocumentType, LegalResponse, Metadata, Severity, HiddenRisk } from '@/types/legal-response';
 import { MOCK_FIXTURES } from '@/lib/mock-data/fixtures';
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function generateExplanation(
     text: string,
@@ -8,16 +15,60 @@ export async function generateExplanation(
     severity?: Severity,
     risks?: HiddenRisk[]
 ): Promise<LegalResponse> {
-    const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_LLM !== 'false'; // Default to true
+    const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_LLM !== 'false';
 
     if (USE_MOCK) {
         return getMockResponse(docType, severity, risks, text, metadata);
     }
 
-    // TODO: Implement Real LLM Call here
-    // For now, fall back to mock
-    console.warn('Real LLM not implemented yet, using mock.');
-    return getMockResponse(docType, severity, risks, text, metadata);
+    try {
+        console.log("Generating explanation using Real AI...");
+        const prompt = `
+        You are a Legal AI Assistant. Analyze the following document text and provide a JSON response matches this schema:
+        {
+          "summary": "string",
+          "why_received": "string",
+          "severity": { "level": "Low" | "Medium" | "High", "reason": "string" },
+          "hidden_risks": [ { "risk": "string", "explanation": "string", "impact": "string" } ],
+          "what_to_do_next": ["string", "string"],
+          "disclaimer": "Standard legal disclaimer"
+        }
+
+        Document Type: ${docType}
+        Extracted Metadata amounts: ${metadata.amounts.join(', ')}
+        Extracted Metadata sections: ${metadata.sections.join(', ')}
+
+        TEXT:
+        ${text.substring(0, 3000)}
+        `;
+
+        const completion = await openai.chat.completions.create({
+            messages: [{ role: "system", content: "You are a helpful legal assistant." }, { role: "user", content: prompt }],
+            model: "gpt-4o",
+            response_format: { type: "json_object" },
+        });
+
+        const rawContent = completion.choices[0].message.content;
+        if (!rawContent) throw new Error("No content from OpenAI");
+
+        const aiResponse = JSON.parse(rawContent) as LegalResponse;
+
+        // Safety Overrides
+        // 1. Force dates from metadata to avoid hallucination
+        aiResponse.important_dates = metadata.dates || [];
+
+        // 2. Ensure disclaimer exists
+        if (!aiResponse.disclaimer) {
+            aiResponse.disclaimer = "This explanation is for informational purposes only and does not constitute legal advice.";
+        }
+
+        return aiResponse;
+
+    } catch (error) {
+        console.error("AI Generation Error:", error);
+        console.warn("Falling back to Mock.");
+        return getMockResponse(docType, severity, risks, text, metadata);
+    }
 }
 
 function getMockResponse(
