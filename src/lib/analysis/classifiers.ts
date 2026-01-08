@@ -1,60 +1,91 @@
-import { DocumentType, Metadata } from '@/types/legal-response';
+import { DocumentType, Metadata, ClassificationResult } from '@/types/legal-response';
+import { CLASSIFIER_KNOWLEDGE, DetailedDocumentType } from './classifier-knowledge';
 
-export function classifyDocument(text: string, metadata: Metadata): DocumentType {
+export function classifyDocument(text: string, metadata: Metadata): ClassificationResult {
     const upperText = text.toUpperCase();
+    const scores: Record<string, number> = {};
 
-    // 1. Tax Indicators (STRICT - "NOTICE" alone is not enough)
-    const taxIndicators = [
-        'INCOME TAX',
-        'SECTION 143',
-        'SECTION 156',
-        'SECTION 148',
-        'NOTICE OF DEMAND',
-        'INTIMATION U/S',
-        'CENTRAL BOARD OF DIRECT TAXES',
-        'ITBA'
-    ];
+    // 1. Calculate Scores for each known type
+    CLASSIFIER_KNOWLEDGE.forEach(rule => {
+        let score = 0;
+        let disqualifierFound = false;
 
-    if (taxIndicators.some(ind => upperText.includes(ind))) {
-        return 'government_notice';
+        // Check Disqualifiers
+        if (rule.disqualifiers) {
+            if (rule.disqualifiers.some(d => upperText.includes(d.toUpperCase()))) {
+                disqualifierFound = true;
+            }
+        }
+
+        if (!disqualifierFound) {
+            // Check Required Sections (Specific for Tax)
+            if (rule.requiredSections) {
+                const hasRequired = rule.requiredSections.some(sec =>
+                    upperText.includes(sec.toUpperCase()) ||
+                    metadata.sections.some(ms => ms.toUpperCase().includes(sec.toUpperCase()))
+                );
+                if (!hasRequired && rule.type === 'TAX_NOTICE') {
+                    // Tax notice MUST have sections. If not, score is penalized heavily.
+                    score = -100;
+                }
+            }
+
+            // Sum Weights
+            if (score !== -100) {
+                rule.keywords.forEach(kw => {
+                    if (upperText.includes(kw.text.toUpperCase())) {
+                        score += kw.weight;
+                    }
+                });
+            }
+        }
+
+        scores[rule.type] = Math.max(0, score);
+    });
+
+    // 2. Sort Scoring
+    const sortedScores = Object.entries(scores)
+        .sort(([, a], [, b]) => b - a);
+
+    const topMatch = sortedScores[0];
+    const secondMatch = sortedScores[1];
+
+    const topScore = topMatch ? topMatch[1] : 0;
+    const secondScore = secondMatch ? secondMatch[1] : 0;
+    let detectedType = (topMatch ? topMatch[0] : 'UNKNOWN') as DocumentType;
+
+    // 3. Threshold Check
+    if (topScore === 0) {
+        detectedType = 'unknown';
     }
 
-    // 2. Legal Payment Indicators
-    const paymentIndicators = [
-        'LEGAL NOTICE',
-        'OUTSTANDING PAYMENT',
-        'DUES',
-        'SERVICES RENDERED',
-        'FINAL NOTICE',
-        'DEMAND NOTICE', // Ambiguous, but if not tax, likely general legal
-        'RECOVERY OF DUES'
-    ];
-
-    if (paymentIndicators.some(ind => upperText.includes(ind))) {
-        return 'legal_payment_notice';
+    // 4. Calculate Confidence (Relative)
+    // Formula: Top / (Top + Second) * 100. If Second is 0, Top is 100%.
+    let confidence = 0;
+    if (topScore > 0) {
+        if (secondScore === 0) {
+            confidence = 100;
+        } else {
+            confidence = Math.round((topScore / (topScore + secondScore)) * 100);
+        }
     }
 
-    // 3. Contract Indicators
-    const contractIndicators = [
-        'EMPLOYMENT AGREEMENT',
-        'APPOINTMENT LETTER',
-        'NON-DISCLOSURE AGREEMENT',
-        'CONFIDENTIALITY AGREEMENT',
-        'LEASE AGREEMENT',
-        'MUTUAL AGREEMENT',
-        'THIS AGREEMENT',
-        'BY AND BETWEEN',
-        'OFFER LETTER'
-    ];
-
-    if (contractIndicators.some(ind => upperText.includes(ind))) {
-        return 'contract';
+    // 5. Mixed Document Detection
+    // Conditions: Confidence < 65 OR Score Diff < 3 (if both substantial)
+    let isMixed = false;
+    if (topScore > 5 && secondScore > 5) { // Only check if we have two competitors
+        if (confidence < 65 || (topScore - secondScore < 3)) {
+            isMixed = true;
+        }
     }
 
-    // 4. Fallback based on metadata keywords if text scan fails
-    if (metadata.sections.some(s => s.includes('143') || s.includes('156') || s.includes('148'))) {
-        return 'government_notice';
-    }
+    // Fallback Legacy Mappings (if needed, but our Types match mostly now)
+    // ensure detectedType matches DocumentType union
 
-    return 'unknown';
+    return {
+        documentType: detectedType,
+        confidence,
+        mixed: isMixed,
+        scores
+    };
 }

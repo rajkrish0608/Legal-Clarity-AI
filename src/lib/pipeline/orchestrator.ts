@@ -54,8 +54,23 @@ export async function processDocument(input: ProcessInput): Promise<PipelineResu
 
         // Stage 3: Classification
         console.log('Stage 3: Classification...');
-        const docType = classifyDocument(text, metadata);
-        if (docType === 'unknown') {
+        // Stage 3: Classification
+        console.log('Stage 3: Classification...');
+        const classificationResult = classifyDocument(text, metadata);
+        const detailedDocType = classificationResult.documentType;
+
+        // Map to Broad Types for Rule Engine compatibility
+        let broadType: 'government_notice' | 'legal_payment_notice' | 'contract' | 'unknown' = 'unknown';
+
+        if (detailedDocType === 'TAX_NOTICE' || detailedDocType === 'government_notice') {
+            broadType = 'government_notice';
+        } else if (detailedDocType === 'LEGAL_PAYMENT_NOTICE' || detailedDocType === 'legal_payment_notice') {
+            broadType = 'legal_payment_notice';
+        } else if (['EMPLOYMENT_OFFER', 'NDA', 'GENERAL_CONTRACT', 'RENT_AGREEMENT', 'TERMINATION_NOTICE', 'contract'].includes(detailedDocType)) {
+            broadType = 'contract';
+        }
+
+        if (broadType === 'unknown') {
             // ideally ask user, defaulted for now
         }
 
@@ -64,27 +79,38 @@ export async function processDocument(input: ProcessInput): Promise<PipelineResu
         let severity;
         let risks;
 
-        if (docType === 'government_notice') {
+        if (broadType === 'government_notice') {
             severity = determineSeverity(metadata);
-        } else if (docType === 'legal_payment_notice') {
+        } else if (broadType === 'legal_payment_notice') {
             // Default Severity for Legal Payment Notice
             severity = {
                 level: 'Medium' as const,
                 reason: 'A legal notice for outstanding payment requires attention to avoid escalation.'
             };
         } else {
-            // Contract or unknown
+            // Contract or unknown (treat as contract for risk scan)
             risks = detectContractRisks(text);
         }
 
         // Stage 5: Explain (LLM/Mock)
         console.log('Stage 5: Explanation Generation...');
-        let response = await generateExplanation(text, metadata, docType, severity, risks);
+        let response = await generateExplanation(
+            text,
+            metadata,
+            detailedDocType, // Pass detailed type
+            severity,
+            risks,
+            { // Pass new classification info
+                detailed_type: detailedDocType,
+                confidence: classificationResult.confidence,
+                is_mixed: classificationResult.mixed
+            }
+        );
 
         // Override severity/risks with Rules where applicable
-        if (docType === 'government_notice' && severity) {
+        if (broadType === 'government_notice' && severity) {
             response.severity = severity; // Force rule-based severity
-        } else if (docType === 'legal_payment_notice' && severity) {
+        } else if (broadType === 'legal_payment_notice' && severity) {
             response.severity = severity; // Force default severity
         }
 

@@ -13,12 +13,13 @@ export async function generateExplanation(
     metadata: Metadata,
     docType: DocumentType,
     severity?: Severity,
-    risks?: HiddenRisk[]
+    risks?: HiddenRisk[],
+    classificationInfo?: { detailed_type: string; confidence: number; is_mixed: boolean; }
 ): Promise<LegalResponse> {
     const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_LLM !== 'false';
 
     if (USE_MOCK) {
-        return getMockResponse(docType, severity, risks, text, metadata);
+        return getMockResponse(docType, severity, risks, text, metadata, classificationInfo);
     }
 
     try {
@@ -35,6 +36,7 @@ export async function generateExplanation(
         }
 
         Document Type: ${docType}
+        Classification Confidence: ${classificationInfo?.confidence}%
         Extracted Metadata amounts: ${metadata.amounts.join(', ')}
         Extracted Metadata sections: ${metadata.sections.join(', ')}
 
@@ -62,12 +64,15 @@ export async function generateExplanation(
             aiResponse.disclaimer = "This explanation is for informational purposes only and does not constitute legal advice.";
         }
 
+        // Attach classification info
+        aiResponse.classification_info = classificationInfo;
+
         return aiResponse;
 
     } catch (error) {
         console.error("AI Generation Error:", error);
         console.warn("Falling back to Mock.");
-        return getMockResponse(docType, severity, risks, text, metadata);
+        return getMockResponse(docType, severity, risks, text, metadata, classificationInfo);
     }
 }
 
@@ -76,7 +81,8 @@ function getMockResponse(
     severity?: Severity,
     risks?: HiddenRisk[],
     text?: string,
-    metadata?: Metadata
+    metadata?: Metadata,
+    classificationInfo?: { detailed_type: string; confidence: number; is_mixed: boolean; }
 ): LegalResponse {
     const upperText = text?.toUpperCase() || '';
 
@@ -88,7 +94,8 @@ function getMockResponse(
     // Mock Selection Logic
     let response: LegalResponse;
 
-    if (docType === 'government_notice') {
+    // Map Detailed Types to Fixtures
+    if (docType === 'government_notice' || docType === 'TAX_NOTICE') {
         const isTax = upperText.includes('INCOME TAX') || upperText.includes('143') || upperText.includes('156');
         if (upperText.includes('156') || upperText.includes('DEMAND') || (isTax && upperText.includes('OUTSTANDING'))) {
             response = { ...MOCK_FIXTURES.NOTICE_HIGH_SEVERITY };
@@ -98,9 +105,9 @@ function getMockResponse(
             // Default tax notice if classified as such but undefined subtype
             response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY };
         }
-    } else if (docType === 'legal_payment_notice') {
+    } else if (docType === 'legal_payment_notice' || docType === 'LEGAL_PAYMENT_NOTICE') {
         response = { ...MOCK_FIXTURES.LEGAL_PAYMENT_NOTICE_FIXTURE };
-    } else if (docType === 'contract') {
+    } else if (['contract', 'EMPLOYMENT_OFFER', 'NDA', 'GENERAL_CONTRACT', 'RENT_AGREEMENT', 'TERMINATION_NOTICE'].includes(docType)) {
         if (upperText.includes('LOCK-IN') || upperText.includes('LOCK IN') || upperText.includes('BOND')) {
             // Use Risky fixture base
             const baseResponse = MOCK_FIXTURES.CONTRACT_RISKY;
@@ -113,10 +120,7 @@ function getMockResponse(
                     }
                 });
             }
-            response = {
-                ...baseResponse,
-                hidden_risks: mergedRisks
-            };
+            response = { ...baseResponse, hidden_risks: mergedRisks };
         } else {
             // Default safe contract
             response = { ...MOCK_FIXTURES.CONTRACT_SAFE };
@@ -137,6 +141,9 @@ function getMockResponse(
     } else {
         response.important_dates = [];
     }
+
+    // Attach classification info
+    response.classification_info = classificationInfo;
 
     return response;
 }

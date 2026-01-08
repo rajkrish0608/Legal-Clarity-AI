@@ -1,12 +1,12 @@
 export type DetailedDocumentType =
-    | 'EMPLOYMENT_OFFER'
-    | 'NDA'
-    | 'LEGAL_PAYMENT_NOTICE'
-    | 'TAX_NOTICE'
-    | 'GENERAL_CONTRACT'
-    | 'RENT_AGREEMENT'
-    | 'TERMINATION_NOTICE'
-    | 'UNKNOWN';
+    | 'employment_offer'
+    | 'nda'
+    | 'legal_payment_notice'
+    | 'tax_notice'
+    | 'general_contract'
+    | 'rent_agreement'
+    | 'termination_notice'
+    | 'unknown';
 
 interface KeywordRule {
     text: string;
@@ -22,7 +22,7 @@ interface ClassificationRule {
 
 export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
     {
-        type: 'EMPLOYMENT_OFFER',
+        type: 'employment_offer',
         keywords: [
             { text: 'OFFER LETTER', weight: 10 },
             { text: 'REMUNERATION', weight: 5 },
@@ -35,7 +35,7 @@ export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
         ]
     },
     {
-        type: 'NDA',
+        type: 'nda',
         keywords: [
             { text: 'NON-DISCLOSURE AGREEMENT', weight: 15 },
             { text: 'CONFIDENTIALITY AGREEMENT', weight: 15 },
@@ -45,7 +45,7 @@ export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
         ]
     },
     {
-        type: 'LEGAL_PAYMENT_NOTICE',
+        type: 'legal_payment_notice',
         keywords: [
             { text: 'LEGAL NOTICE', weight: 10 },
             { text: 'OUTSTANDING PAYMENT', weight: 8 },
@@ -58,7 +58,7 @@ export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
         disqualifiers: ['INCOME TAX', 'GST']
     },
     {
-        type: 'TAX_NOTICE',
+        type: 'tax_notice',
         keywords: [
             { text: 'INCOME TAX', weight: 10 },
             { text: 'DEPARTMENT OF REVENUE', weight: 5 },
@@ -70,7 +70,7 @@ export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
         requiredSections: ['143', '156', '142(1)', '148', '245']
     },
     {
-        type: 'RENT_AGREEMENT',
+        type: 'rent_agreement',
         keywords: [
             { text: 'RENT AGREEMENT', weight: 15 },
             { text: 'LEASE AGREEMENT', weight: 10 },
@@ -83,7 +83,7 @@ export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
         ]
     },
     {
-        type: 'TERMINATION_NOTICE',
+        type: 'termination_notice',
         keywords: [
             { text: 'TERMINATION OF EMPLOYMENT', weight: 15 },
             { text: 'RELIEVING LETTER', weight: 10 },
@@ -93,7 +93,7 @@ export const CLASSIFIER_KNOWLEDGE: ClassificationRule[] = [
         ]
     },
     {
-        type: 'GENERAL_CONTRACT',
+        type: 'general_contract',
         keywords: [
             { text: 'AGREEMENT', weight: 3 }, // Low weight as generic
             { text: 'BY AND BETWEEN', weight: 5 },
