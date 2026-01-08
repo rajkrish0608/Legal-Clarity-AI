@@ -43,8 +43,9 @@ export async function processDocument(input: ProcessInput): Promise<PipelineResu
             text = await extractText(input.file);
         }
 
-        if (!text || text.length < 50) {
-            return { success: false, error: 'Could not extract sufficient text from document.', stage: 'extraction' };
+        if (!text || text.length < 20) {
+            console.error(`Extraction failed. Text length: ${text?.length || 0}`);
+            return { success: false, error: 'Could not extract sufficient text (minimum 20 characters required).', stage: 'extraction' };
         }
 
         // Stage 2: Metadata Extraction

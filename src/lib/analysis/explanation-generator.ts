@@ -126,7 +126,7 @@ function getMockResponse(
         if (upperText.includes('143')) response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY };
         else if (upperText.includes('156')) response = { ...MOCK_FIXTURES.NOTICE_HIGH_SEVERITY };
         else if (upperText.includes('LOCK')) response = { ...MOCK_FIXTURES.CONTRACT_RISKY };
-        else response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY }; // Ultimate safe fallback
+        else response = { ...MOCK_FIXTURES.GENERIC_UNKNOWN }; // Ultimate safe fallback
     }
 
     // FIX 4: Date Extraction Safety

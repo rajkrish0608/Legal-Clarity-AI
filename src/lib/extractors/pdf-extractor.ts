@@ -1,10 +1,10 @@
 'use server';
 
-// @ts-ignore
-const pdf = require('pdf-parse');
-
 export async function extractPdfText(formData: FormData): Promise<string> {
     try {
+        // @ts-ignore
+        const pdf = require('pdf-parse'); // Move inside to prevent build-time/init-time errors
+
         const file = formData.get('file') as File;
         if (!file) throw new Error('No file provided');
 

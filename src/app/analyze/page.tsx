@@ -8,6 +8,8 @@ import { Alert, AlertTitle, AlertDescription, Button, Card, CardContent } from '
 import { ShieldCheck, FileText, Image as ImageIcon, Type, Loader2 } from 'lucide-react';
 import { LegalResponse } from '@/types/legal-response';
 import { cn } from '@/components/ui/simple-ui';
+import { supabase } from '@/lib/supabase/client';
+import { AuthButton } from '@/components/features/AuthButton';
 
 type InputMethod = 'pdf' | 'image' | 'text';
 
@@ -32,6 +34,17 @@ export default function AnalyzePage() {
 
             if (res.success && res.data) {
                 setResult(res.data);
+
+                // Save to History (if logged in)
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase.from('analyses').insert({
+                        user_id: user.id,
+                        document_type: res.data.severity ? 'government_notice' : 'contract', // Simplified type inference or use logic
+                        summary: res.data.summary,
+                        full_response: res.data
+                    });
+                }
             } else {
                 setError(res.error || "Analysis failed. Please try again.");
             }
@@ -55,6 +68,11 @@ export default function AnalyzePage() {
     return (
         <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-4xl mx-auto space-y-8">
+
+                {/* Top Navigation */}
+                <div className="flex justify-end w-full mb-4">
+                    <AuthButton />
+                </div>
 
                 {/* Header */}
                 <div className="text-center space-y-2">

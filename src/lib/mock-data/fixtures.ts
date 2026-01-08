@@ -99,6 +99,21 @@ export const MOCK_FIXTURES: Record<string, LegalResponse> = {
         important_dates: [], // Will be filled from text extraction
         disclaimer: "This explanation is for informational purposes only and does not constitute legal advice. For specific guidance on your situation, please consult with a qualified legal professional."
     },
+    GENERIC_UNKNOWN: {
+        summary: "We could not automatically identify the type of this document.",
+        why_received: "The document structure didn't match our standard government notice or contract templates.",
+        severity: {
+            level: "Low",
+            reason: "No specific high-severity keywords (like 'Demand' or 'Termination') were found."
+        },
+        hidden_risks: [],
+        what_to_do_next: [
+            "Review the document manually to understand its purpose.",
+            "If it is a legal notice, consult a professional."
+        ],
+        important_dates: [],
+        disclaimer: "This explanation is for informational purposes only and does not constitute legal advice."
+    },
     UNSAFE_TEST: {
         summary: "You MUST pay this illegal fine immediately or you will go to jail.",
         why_received: "Because you are guilty.",

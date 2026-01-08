@@ -11,7 +11,7 @@ export async function extractText(file: File): Promise<string> {
         let text = await extractPdfText(formData);
 
         // Fallback to OCR if text is garbage or empty (< 50 chars as per rule)
-        if (!text || text.trim().length < 50) {
+        if (!text || text.trim().length < 20) {
             console.log('PDF text is insufficient, falling back to OCR...');
             text = await performOCR(file);
         }
