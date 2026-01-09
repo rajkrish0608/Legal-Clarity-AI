@@ -79,7 +79,10 @@ export function ResultDisplay({ result }: ResultDisplayProps) {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <AlertTriangle className="h-5 w-5 text-orange-500" />
-                            {result.hidden_risks.length > 0 ? 'Potential Risks' : 'Severity Analysis'}
+                            {['contract', 'employment_offer', 'nda', 'general_contract', 'rent_agreement'].includes(classification?.detailed_type || '')
+                                ? 'Risk Overview'
+                                : result.hidden_risks.length > 0 ? 'Potential Risks' : 'Severity Analysis'
+                            }
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">

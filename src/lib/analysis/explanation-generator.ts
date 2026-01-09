@@ -2,6 +2,7 @@
 
 import { DocumentType, LegalResponse, Metadata, Severity, HiddenRisk } from '@/types/legal-response';
 import { MOCK_FIXTURES } from '../mock-data/fixtures';
+import { selectExplanationTemplate } from './explanation-templates';
 import OpenAI from 'openai';
 
 // Lazy init to prevent crashes in tests/builds without API key
@@ -25,8 +26,12 @@ export async function generateExplanation(
 
     try {
         console.log("Generating explanation using Real AI...");
+        const templateInstruction = selectExplanationTemplate(docType);
+
         const prompt = `
-        You are a Legal AI Assistant. Analyze the following document text and provide a JSON response matches this schema:
+        ${templateInstruction}
+
+        Analyze the following text and provide a JSON response matching this schema:
         {
           "summary": "string",
           "why_received": "string",
@@ -87,60 +92,77 @@ function getMockResponse(
 ): LegalResponse {
     const upperText = text?.toUpperCase() || '';
 
-    // Special safety test trigger
+    // Special safety test trigger - KEPT FOR SAFETY TESTING
     if (upperText.includes('ILLEGAL FINE')) {
         return MOCK_FIXTURES.UNSAFE_TEST;
     }
 
-    // Mock Selection Logic
+    // STRICT Deterministic Mock Selection
     let response: LegalResponse;
 
-    // Map Detailed Types to Fixtures
-    if (docType === 'government_notice' || docType === 'tax_notice') {
-        const isTax = upperText.includes('INCOME TAX') || upperText.includes('143') || upperText.includes('156');
-        if (upperText.includes('156') || upperText.includes('DEMAND') || (isTax && upperText.includes('OUTSTANDING'))) {
-            response = { ...MOCK_FIXTURES.NOTICE_HIGH_SEVERITY };
-        } else if (upperText.includes('143') || upperText.includes('INTIMATION')) {
-            response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY };
-        } else {
-            // Default tax notice if classified as such but undefined subtype
-            response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY };
-        }
-    } else if (docType === 'legal_payment_notice') {
-        response = { ...MOCK_FIXTURES.LEGAL_PAYMENT_NOTICE_FIXTURE };
-    } else if (['contract', 'employment_offer', 'nda', 'general_contract', 'rent_agreement', 'termination_notice'].includes(docType)) {
-        if (upperText.includes('LOCK-IN') || upperText.includes('LOCK IN') || upperText.includes('BOND')) {
-            // Use Risky fixture base
-            const baseResponse = MOCK_FIXTURES.CONTRACT_RISKY;
-            // Ensure detected risks are included
-            const mergedRisks = [...baseResponse.hidden_risks];
-            if (risks) {
-                risks.forEach(r => {
-                    if (!mergedRisks.some(mr => mr.risk === r.risk)) {
-                        mergedRisks.push(r);
-                    }
-                });
-            }
-            response = { ...baseResponse, hidden_risks: mergedRisks };
-        } else {
-            // Default safe contract
+    // Direct mapping from docType to fixture base
+    switch (docType) {
+        case 'employment_offer':
+            // ALWAYS return Safe Contract for Offers, but enrich with specific metadata if needed
             response = { ...MOCK_FIXTURES.CONTRACT_SAFE };
-        }
-    } else {
-        // Unknown type default fallback
-        if (upperText.includes('143')) response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY };
-        else if (upperText.includes('156')) response = { ...MOCK_FIXTURES.NOTICE_HIGH_SEVERITY };
-        else if (upperText.includes('LOCK')) response = { ...MOCK_FIXTURES.CONTRACT_RISKY };
-        else response = { ...MOCK_FIXTURES.GENERIC_UNKNOWN }; // Ultimate safe fallback
+            response.summary = "This is a standard Employment Offer."; // Override summary to be specific
+            break;
+
+        case 'nda':
+            // ALWAYS return Risky Contract for NDAs as they are restrictive by nature
+            response = { ...MOCK_FIXTURES.CONTRACT_RISKY };
+            response.summary = "This is a Non-Disclosure Agreement (NDA).";
+            break;
+
+        case 'tax_notice':
+        case 'government_notice': // Fallback for legacy
+            if (upperText.includes('156') || upperText.includes('DEMAND') || upperText.includes('OUTSTANDING')) {
+                response = { ...MOCK_FIXTURES.NOTICE_HIGH_SEVERITY };
+            } else {
+                response = { ...MOCK_FIXTURES.NOTICE_LOW_SEVERITY };
+            }
+            break;
+
+        case 'legal_payment_notice':
+            response = { ...MOCK_FIXTURES.LEGAL_PAYMENT_NOTICE_FIXTURE };
+            break;
+
+        case 'rent_agreement':
+            response = { ...MOCK_FIXTURES.CONTRACT_SAFE };
+            response.summary = "This is a Rent Agreement.";
+            break;
+
+        case 'termination_notice':
+            response = { ...MOCK_FIXTURES.NOTICE_HIGH_SEVERITY };
+            response.summary = "This is a Termination Notice.";
+            break;
+
+        case 'general_contract':
+        case 'contract':
+            response = { ...MOCK_FIXTURES.CONTRACT_SAFE };
+            break;
+
+        default:
+            response = { ...MOCK_FIXTURES.GENERIC_UNKNOWN };
+            break;
     }
 
     // FIX 4: Date Extraction Safety
-    // Overwrite the mock dates with actual dates found in the document
-    // If no dates found, result should be empty.
     if (metadata?.dates) {
         response.important_dates = metadata.dates;
     } else {
         response.important_dates = [];
+    }
+
+    // Inject risks if provided (from rule engine), without changing base type logic
+    if (risks && risks.length > 0) {
+        // Create a new array to avoid mutating the fixture
+        response.hidden_risks = [...response.hidden_risks];
+        risks.forEach(r => {
+            if (!response.hidden_risks.some(mr => mr.risk === r.risk)) {
+                response.hidden_risks.push(r);
+            }
+        });
     }
 
     // Attach classification info
@@ -148,3 +170,4 @@ function getMockResponse(
 
     return response;
 }
+
