@@ -20,6 +20,7 @@ export interface ProcessInput {
     inputType: InputType;
     file?: File;
     rawText?: string;
+    targetLanguage?: string;
 }
 
 export async function processDocument(input: ProcessInput): Promise<PipelineResult> {
@@ -52,8 +53,6 @@ export async function processDocument(input: ProcessInput): Promise<PipelineResu
         console.log('Stage 2: Metadata Extraction...');
         const metadata = extractMetadata(text);
 
-        // Stage 3: Classification
-        console.log('Stage 3: Classification...');
         // Stage 3: Classification
         console.log('Stage 3: Classification...');
         const classificationResult = classifyDocument(text, metadata);
@@ -104,7 +103,8 @@ export async function processDocument(input: ProcessInput): Promise<PipelineResu
                 detailed_type: detailedDocType,
                 confidence: classificationResult.confidence,
                 is_mixed: classificationResult.mixed
-            }
+            },
+            input.targetLanguage // Pass target language
         );
 
         // Override severity/risks with Rules where applicable

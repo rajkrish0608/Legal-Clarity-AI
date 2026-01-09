@@ -16,7 +16,8 @@ export async function generateExplanation(
     docType: DocumentType,
     severity?: Severity,
     risks?: HiddenRisk[],
-    classificationInfo?: { detailed_type: string; confidence: number; is_mixed: boolean; }
+    classificationInfo?: { detailed_type: string; confidence: number; is_mixed: boolean; },
+    targetLanguage: string = 'English'
 ): Promise<LegalResponse> {
     const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_LLM !== 'false';
 
@@ -25,11 +26,15 @@ export async function generateExplanation(
     }
 
     try {
-        console.log("Generating explanation using Real AI...");
+        console.log(`Generating explanation using Real AI in ${targetLanguage}...`);
         const templateInstruction = selectExplanationTemplate(docType);
 
         const prompt = `
         ${templateInstruction}
+
+        IMPORTANT: Provide the response in ${targetLanguage}.
+        Translate all summary, reasons, risk explanations, and advice into ${targetLanguage}.
+        Keep the keys in JSON (like "summary", "why_received") in English, but the values should be in ${targetLanguage}.
 
         Analyze the following text and provide a JSON response matching this schema:
         {

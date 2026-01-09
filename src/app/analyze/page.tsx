@@ -18,6 +18,7 @@ export default function AnalyzePage() {
     const [error, setError] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [inputMethod, setInputMethod] = useState<InputMethod>('pdf');
+    const [language, setLanguage] = useState('English');
     const [textInput, setTextInput] = useState('');
 
     const handleAnalysis = async (input: { file?: File, text?: string }) => {
@@ -29,7 +30,8 @@ export default function AnalyzePage() {
             const res = await processDocument({
                 inputType: inputMethod,
                 file: input.file,
-                rawText: input.text
+                rawText: input.text,
+                targetLanguage: language
             });
 
             if (res.success && res.data) {
@@ -88,6 +90,29 @@ export default function AnalyzePage() {
                 {/* Main Content Area */}
                 {!result && (
                     <div className="space-y-6">
+                        {/* Language Selector */}
+                        <div className="flex justify-center mb-6">
+                            <select
+                                className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm focus:ring-2 focus:ring-slate-900 focus:border-transparent outline-none"
+                                value={language}
+                                onChange={(e) => setLanguage(e.target.value)}
+                            >
+                                <option value="English">English</option>
+                                <option value="Hindi">Hindi (हिंदी)</option>
+                                <option value="Marathi">Marathi (मराठी)</option>
+                                <option value="Tamil">Tamil (தமிழ்)</option>
+                                <option value="Telugu">Telugu (తెలుగు)</option>
+                                <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                                <option value="Bengali">Bengali (বাংলা)</option>
+                                <option value="Malayalam">Malayalam (മലയാളം)</option>
+                                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                                <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
+                                <option value="Spanish">Spanish (Español)</option>
+                                <option value="French">French (Français)</option>
+                                <option value="German">German (Deutsch)</option>
+                            </select>
+                        </div>
+
                         {/* Input Method Selector */}
                         <div className="flex justify-center">
                             <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
